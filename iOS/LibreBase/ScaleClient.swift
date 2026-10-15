@@ -275,7 +275,7 @@ final class ScaleClient: NSObject, ObservableObject {
     // MARK: - Parsers (standard Weight Measurement 0x2A9D / Body Composition 0x2A9C)
 
     private func parseWeight(_ data: Data, from p: CBPeripheral) {
-        guard let weight = StandardScaleProfile.parseWeight(data) else { return }
+        guard let weight = StandardScaleProfile.parseWeight(data, qardioBaseX: true) else { return }
 
         // On a shared scale, a weigh-in attributed to a user other than the one
         // this phone registered must not land in this phone's Health record.
