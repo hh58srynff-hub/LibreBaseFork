@@ -71,6 +71,8 @@ struct LibreBaseTests {
     @Test func parsesStandardWeightMeasurement() throws {
         // SI, no optional fields: 14280 × 0.005 kg = 71.4 kg.
         #expect(StandardScaleProfile.parseWeight(Data([0x00, 0xC8, 0x37]))?.kg == 71.4)
+        // QardioBase X captured SI frame: raw 2006 -> 100.3 kg in 0.05 kg units.
+        #expect(StandardScaleProfile.parseWeight(Data([0x00, 0xD6, 0x07]), qardioBaseX: true)?.kg == 100.30000000000001)
         // Imperial: 15000 × 0.01 lb.
         let lb = try #require(StandardScaleProfile.parseWeight(Data([0x01, 0x98, 0x3A])))
         #expect(abs(lb.kg - 68.0389) < 0.001)
