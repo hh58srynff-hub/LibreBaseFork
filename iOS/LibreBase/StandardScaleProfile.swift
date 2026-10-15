@@ -41,7 +41,11 @@ enum StandardScaleProfile {
         print("[Qardio DEBUG] Bytes: \(b.map { String(format: "%02x", $0) }.joined(separator: " "))")
         print("[Qardio DEBUG] Raw weight: \(rawWeight), flags: \(flags), imperial: \(imperial)")
 
-        let kg = mass(raw: rawWeight, imperial: imperial)
+        // QardioBase X's captured SI payload reports rawWeight in 0.05 kg units
+        // (e.g. 2006 -> 100.3 kg), unlike the Bluetooth SIG 0.005 kg resolution.
+        // Keep imperial conversion at the standard 0.01 lb/unit.
+        let kg = imperial ? mass(raw: rawWeight, imperial: true) : Double(rawWeight) * 0.05
+        print("[Qardio DEBUG] Parsed weight: \(kg) kg")
         var offset = 3
         var timestamp: Date?
 
