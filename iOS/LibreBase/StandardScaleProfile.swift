@@ -32,20 +32,31 @@ enum StandardScaleProfile {
     static func parseWeight(_ data: Data, calendar: Calendar = gregorian) -> Weight? {
         let b = [UInt8](data)
         guard b.count >= 3 else { return nil }
+
         let flags = b[0]
-        let kg = mass(raw: u16(b, 1), imperial: flags & 0x01 != 0)
+        let rawWeight = u16(b, 1)
+        let imperial = flags & 0x01 != 0
+
+        // Diagnostic logging only; does not change the weight calculation.
+        print("[Qardio DEBUG] Bytes: \(b.map { String(format: "%02x", $0) }.joined(separator: " "))")
+        print("[Qardio DEBUG] Raw weight: \(rawWeight), flags: \(flags), imperial: \(imperial)")
+
+        let kg = mass(raw: rawWeight, imperial: imperial)
         var offset = 3
         var timestamp: Date?
+
         if flags & 0x02 != 0 {
             guard b.count >= offset + 7 else { return nil }
             timestamp = date(Array(b[offset..<offset + 7]), calendar: calendar)
             offset += 7
         }
+
         var userIndex: UInt8?
         if flags & 0x04 != 0 {
             guard b.count >= offset + 1 else { return nil }
             userIndex = b[offset]
         }
+
         return Weight(kg: kg, timestamp: timestamp, userIndex: userIndex)
     }
 
@@ -63,6 +74,7 @@ enum StandardScaleProfile {
         let imperial = flags & 0x0001 != 0
         var offset = 4
         var fields: [Int: UInt16] = [:]
+
         // Optional fields in wire order: (flag bit, byte length).
         for (bit, length) in [(1, 7), (2, 1), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2), (9, 2), (10, 2), (11, 2)]
         where flags & (1 << UInt16(bit)) != 0 {
@@ -74,8 +86,12 @@ enum StandardScaleProfile {
         var composition = BodyComposition()
         // 0xFFFF = "measurement unsuccessful". Percentages are in 0.1 % units.
         let fatRaw = u16(b, 2)
-        if fatRaw != 0xFFFF { composition.fatPct = within(Double(fatRaw) * 0.1, 3...60) }
-        if let muscle = fields[4] { composition.musclePct = within(Double(muscle) * 0.1, 10...70) }
+        if fatRaw != 0xFFFF {
+            composition.fatPct = within(Double(fatRaw) * 0.1, 3...60)
+        }
+        if let muscle = fields[4] {
+            composition.musclePct = within(Double(muscle) * 0.1, 10...70)
+        }
         let weight = fields[10].map { mass(raw: $0, imperial: imperial) } ?? weightKg
         if let water = fields[8], let weight, weight > 0 {
             composition.waterPct = within(mass(raw: water, imperial: imperial) / weight * 100, 20...80)
@@ -154,7 +170,9 @@ enum StandardScaleProfile {
 
     // MARK: - Helpers
 
-    private static func u16(_ b: [UInt8], _ i: Int) -> UInt16 { UInt16(b[i]) | (UInt16(b[i + 1]) << 8) }
+    private static func u16(_ b: [UInt8], _ i: Int) -> UInt16 {
+        UInt16(b[i]) | (UInt16(b[i + 1]) << 8)
+    }
 
     /// SI: 0.005 kg/unit. Imperial: 0.01 lb/unit → kg.
     private static func mass(raw: UInt16, imperial: Bool) -> Double {
@@ -167,8 +185,12 @@ enum StandardScaleProfile {
 
     private static func date(_ b: [UInt8], calendar: Calendar) -> Date? {
         var c = DateComponents()
-        c.year = Int(u16(b, 0)); c.month = Int(b[2]); c.day = Int(b[3])
-        c.hour = Int(b[4]); c.minute = Int(b[5]); c.second = Int(b[6])
+        c.year = Int(u16(b, 0))
+        c.month = Int(b[2])
+        c.day = Int(b[3])
+        c.hour = Int(b[4])
+        c.minute = Int(b[5])
+        c.second = Int(b[6])
         return calendar.date(from: c)
     }
 }
