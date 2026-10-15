@@ -29,7 +29,7 @@ enum StandardScaleProfile {
     // MARK: - Weight Measurement (0x2A9D)
 
     /// flags(1) weight(2) [timestamp(7)] [user(1)] [bmi(2) height(2)]
-    static func parseWeight(_ data: Data, calendar: Calendar = gregorian) -> Weight? {
+    static func parseWeight(_ data: Data, calendar: Calendar = gregorian, qardioBaseX: Bool = false) -> Weight? {
         let b = [UInt8](data)
         guard b.count >= 3 else { return nil }
 
@@ -41,11 +41,18 @@ enum StandardScaleProfile {
         print("[Qardio DEBUG] Bytes: \(b.map { String(format: "%02x", $0) }.joined(separator: " "))")
         print("[Qardio DEBUG] Raw weight: \(rawWeight), flags: \(flags), imperial: \(imperial)")
 
-        // QardioBase X's captured SI payload reports rawWeight in 0.05 kg units
-        // (e.g. 2006 -> 100.3 kg), unlike the Bluetooth SIG 0.005 kg resolution.
-        // Keep imperial conversion at the standard 0.01 lb/unit.
-        let kg = imperial ? mass(raw: rawWeight, imperial: true) : Double(rawWeight) * 0.05
-        print("[Qardio DEBUG] Parsed weight: \(kg) kg")
+        // QardioBase X's captured SI payload appears to use 0.05 kg/unit,
+        // unlike the Bluetooth SIG 0.005 kg/unit. Keep the standard parser
+        // unchanged for other scales; enable this only for the QardioBase X path.
+        let kg: Double
+        if imperial {
+            kg = mass(raw: rawWeight, imperial: true)
+        } else if qardioBaseX {
+            kg = Double(rawWeight) * 0.05
+        } else {
+            kg = mass(raw: rawWeight, imperial: false)
+        }
+        print("[Qardio DEBUG] Parsed weight: \(kg) kg (QardioBase X mode: \(qardioBaseX))")
         var offset = 3
         var timestamp: Date?
 
